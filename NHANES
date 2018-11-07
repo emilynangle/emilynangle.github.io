@@ -1,0 +1,383 @@
+//EMILY NANGLE
+//DECEMBER 11 2017
+//PHYSICAL ACTIVITY NHANES 2015-2016
+//DATA UTILIZATION FOR PUBLIC HEALTH
+//NYU
+
+*IMPORT ALL DATA, COMBINE AND SAVE
+{
+    *IMPORT AND SAVE 2015-2016 PAQ DATA
+        **import sasxport "\\Client\E$\PAQ_I.xpt"
+        *save "\\Client\E$\DATA UTIL PROJECT\PAQ 2015 to 2016.dta"
+
+    *IMPORT AND SAVE 2015-2016 DEMOGRAPHIC DATA
+        *import sasxport "\\Client\E$\DEMO_I.xpt"
+        *save "\\Client\E$\DATA UTIL PROJECT\Demographics 2015 to 2016.dta"
+     
+    *COMBINE 2015-2016 DEMOGRAPHIC AND PAQ DATASETS
+        *merge 1:1 seqn using "\\Client\E$\DATA UTIL PROJECT\PAQ Demo 2015 TO 2016.dta"
+        
+}
+
+        
+*SET UP SVY PREFIX
+    svyset sdmvpsu [pweight=wtint2yr], strata(sdmvstra) vce(linear) singleunit(center)
+
+*RECODE PHYSICAL ACTIVITY VARIABLES
+    {
+    *PHYSICAL ACTIVITY DONE AT WORK
+        *VIGOROUS
+            *"Does your work involve vigorous-intensity activity...."
+                *Label
+                    label define vig_work_label 1 "Yes" 2 "No"  
+                    label values paq605 vig_work_label
+                *Recode Missings
+                    recode paq605 (9=.)
+                    tab paq605, missing
+            *Days vigorous intensity work
+                *Recode as 0 if don't do vigorous activity at work
+                    replace paq610=0 if(paq605==2)
+                    recode paq610 (99=.)
+                    tab paq610, missing
+            *Minutes vigorous intensity work per day
+                *Recode as 0 if don't do vigorous activity at work
+                    replace pad615=0 if(paq605==2)
+                    tab pad615, missing                    
+                recode pad615 (9999=.)
+            *Calculate total min per week of vigorous P.A. (min per day * days per week)
+                gen vigwork = paq610*pad615
+                tab vigwork, missing
+        
+        *MODERATE
+            *"Does your work involve vigorous-intensity activity...."
+                *Label
+                    label define mod_work_labell 1 "Yes" 2 "No" 
+                    label values paq620 mod_work_labell
+                    tab paq620
+                    recode paq620 (9=.)
+                *Recode as 0 if don't do moderate activity at work
+                    replace paq625=0 if(paq620==2)
+                    recode paq625 (99=.)
+                    tab paq625, missing
+                    tab paq625 paq620, missing
+            *Minutes moderate physical activity at work per day
+                *Recode as 0 if don't do moderate activity at work
+                    replace pad630=0 if(paq620==2)
+                    tab pad630, missing        
+                    recode pad630 (9999=.)
+            *Calculate total min per week of moderate P.A. at work (min per day * days per week)
+                gen modwork = paq625*pad630
+                tab modwork, missing
+                    
+    *TRANSIT PHYSICAL ACTIVITY
+        *Do you walk or use bike ... to get to and from places"
+            *Label
+                label define transit_actlab 1 "Yes" 2 "No" 
+                label values paq635 transit_actlab
+                tab paq635, missing
+                recode paq635 (9=.)
+        *Number of days walking or bicycling
+            *Recode as 0 if don't bike or walk to get places
+                replace paq640=0 if(paq635==2)
+                recode paq640(99=.)
+                tab paq640, missing
+        *Minutes walking or bicycling
+            *Recode as 0 if don't do bike or walk to get places
+                replace pad645=0 if(paq635==2)
+                tab pad645, missing
+                recode pad645(9999=.)
+        *Calculate min per week of walking/biking to get to places
+            gen transitact=paq640*pad645
+            tab transitact, missing
+                
+
+    *RECREATIONAL PHYSICAL ACTIVITY
+        *VIGOROUS
+            *Do any vigorous-intensity sports, fitness, or recreational activities...
+                *Label
+                    label define vig_rec_label 1 "Yes" 2 "No"  
+                    label values paq650 vig_rec_label
+                *Recode Missings
+                    recode paq650 (9=.)
+            *Days vigorous recreational activities
+                *Recode as 0 if don't do vigorous recreational activity
+                    replace paq655=0 if(paq650==2)
+                    tab paq655, missing
+                    recode paq655 (99=.)
+            *Minutes vigorous recreational activities 
+                *Recode as 0 if don't do vigorous recreational activity 
+                    replace pad660=0 if(paq650==2)
+                    tab pad660, missing                    
+                    recode pad660 (9999=.)
+            *Calculate total min per week of vigorous P.A. (min per day * days per week)
+                gen vigrec = paq655*pad660
+                tab vigrec, missing
+        *MODERATE
+            *Do any moderate-intensity sports, fitness, or recreational activities...
+                *Label
+                    label define mod_rec_labell 1 "Yes" 2 "No" 
+                    label values paq665 mod_rec_labell    
+                    tab paq665, missing
+                    recode paq665 (9=.)
+                *Recode as 0 if don't do moderate activity at work
+                    replace paq670=0 if(paq665==2)
+                    recode paq670 (99=.)
+                    tab paq670, missing
+            *Minutes moderate physical activity at work
+                *Recode as 0 if don't do moderate activity at work
+                    replace pad675=0 if(paq665==2)
+                    tab pad675, missing        
+                    recode pad675 (9999=.)
+            *Calculate total min per week of moderate recreational P.A. (min per day * days per week)
+                gen modrec = paq670*pad675
+                tab modrec, missing
+                
+    *CREATE VARIABLE FOR GETTING RECOMMENDED AMOUNT OF PHYSICAL ACTIVITY
+        *150 minutes of moderate or 75 minutes of vigorous (CDC, 2016)
+            *Gen Var for Total Vigorous PA (Vigorous Work Activity + Vigorous Recreational Activity)
+                gen vigactivity = vigwork+vigrec
+                tab vigactivity
+                tab vigrec
+                tab vigactivity
+                histogram vigactivity
+            *Gen Var for Total Moderate PA (Moderate Work Activity + Biking/Walking Activity + Moderate Recreational Activity)
+                gen modactivity = modwork+transitact+modrec
+                tab modactivity
+                histogram modactivity
+            *Create index for adequate physical activity
+                gen phys_act_index = modactivity+(2*vigactivity)
+                sum phys_act_index, detail
+                tab phys_act_index
+        
+            *Generate Var for Recommended PA
+                gen pa_rec = 1
+                replace pa_rec = 0 if(phys_act_index<150)
+                replace pa_rec = . if(phys_act_index==.)
+                histogram pa_rec
+                tab pa_rec
+            }    
+            
+                
+*RECODE DEMOGRAPHICS
+    *Age
+        *Create Age Categories
+        gen agecat = .
+        replace agecat = 1 if(ridageyr<25&ridageyr>17)
+        replace agecat = 2 if(ridageyr<35&ridageyr>24)
+        replace agecat = 3 if(ridageyr<45&ridageyr>34)
+        replace agecat = 4 if(ridageyr<55&ridageyr>44)
+        replace agecat = 5 if(ridageyr<65&ridageyr>54)
+        replace agecat = 6 if(ridageyr<75&ridageyr>64)
+        replace agecat = 7 if(ridageyr>74)
+    
+        label define agecat_labell 1 "18-24" 2 "25-34" 3 "35-44" 4 "45-54" 5 "55-64" 6 "65-74" 7 "75+"
+        label values agecat agecat_labell
+        
+        svy, subpop(noproxy):tab ridageyr, missing
+        
+        tab agecat
+    
+    *Sex
+        label define gender_label 1 "Male" 2 "Female"
+        label values riagendr gender_label
+        tab riagendr, missing
+         
+        *Dummy Code Sex (Female = 0, Male = 1)
+            gen sex = riagendr
+            recode sex(2=0)
+            label define sex_label 0 "Female" 1 "Male" 
+            label values sex sex_label
+            tab sex
+    
+    *Recode/Label Race
+        label define race_label2 1 "Mexican American" 2 "Oth Hispanic" 3 "White" 4 "Black" 6 "Asian"  7 "Otherrace"
+        label values ridreth3 race_label2
+        tab ridreth3, missing
+        
+        *Dummy code for regression
+            gen Mexican = 0
+            replace Mexican = 1 if ridreth3 ==1
+            replace Mexican = . if ridreth3 ==.
+            
+            gen OthHispanic = 0
+            replace OthHispanic = 1 if ridreth3 ==2
+            replace OthHispanic = . if ridreth3 ==.
+            
+            gen White = 0
+            replace White = 1 if ridreth3 ==3
+            replace White = . if ridreth3 ==.
+            
+            gen Black = 0
+            replace Black = 1 if ridreth3 ==4
+            replace Black = . if ridreth3 ==.
+            
+            
+            gen Asian = 0
+            replace Asian = 1 if ridreth3 ==6
+            replace Asian = . if ridreth3 ==.
+            
+            gen Otherrace = 0
+            replace Otherrace = 1 if ridreth3 ==7
+            replace Otherrace = . if ridreth3 ==.
+            
+            
+    *Born in US
+        
+        recode dmdborn4 (99=.)
+        label define imm_label 1 "US" 2 "Other Country" 
+        label values dmdborn4 imm_label
+        tab dmdborn4
+        *Dummy Code Born in US
+            gen immigrant = 0
+            replace immigrant =1 if (dmdborn4==2)
+            replace immigrant = . if dmdborn4==.
+            
+            label define imm_label2 1 "Immigrant" 0 "Not Immigrant" 
+            label values immigrant imm_label2
+            tab immigrant
+        
+    
+    *Education Level
+        *Participants 6-19
+        tab dmdeduc3, missing
+        *Participants 20+
+        tab dmdeduc2, missing
+        recode dmdeduc2 (7=.)(9=.)
+        label define edu_label 1 "< 9th Grade" 2 "9-11th Grade" 3 "HS Grad/GED" 4 "Some College or AA Degree" 5 "College Grad or Higher" 
+        label values dmdeduc2 edu_label
+        
+        *Create Dichotomous Education Variable
+        gen highered = .
+        replace highered = 1 if dmdeduc2>3
+        replace highered = 0 if dmdeduc2<4
+        tab highered, missing
+    
+    
+        
+    *Create Variable for SES based on Household Income and # Household Members
+        *Total household income
+            recode indhhin2 (77=.)(99=.)
+            label define income_label 1 "$ 0 to $ 4,999" 2 "$ 5,000 to $ 9,999" 3 "$10,000 to $14,999" 4 "$15,000 to $19,999" 5 "$20,000 to $24,999" 6 "$25,000 to $34,999" 7 "$35,000 to $44,999" 8 "$45,000 to $54,999" 9 "$55,000 to $64,999" 10 "    $65,000 to $74,999" 12 "$20,000 and Over" 13 "Under $20,000" 14 "$75,000 to $99,999" 15 "$100,000 and Over" 
+            label values indhhin2 income_label
+            tab indhhin2, missing
+            recode indhhin2 (12=.)(13=.)
+            *Dichotomize
+                gen income35 = .
+                replace income35= 1 if(indhhin2>6)
+                replace income35=0 if(indhhin2<7)
+            
+        *Number of people in household
+            tab dmdhhsiz
+    
+        *Calculate OECD Scale based on # Household Members
+            gen OECD = .
+            replace OECD = 1 if dmdhhsiz==1
+            replace OECD = 1.7 if dmdhhsiz==2
+            replace OECD = 2.2 if dmdhhsiz==3
+            replace OECD = 2.7 if dmdhhsiz==4
+            replace OECD = 3.2 if dmdhhsiz==5
+            replace OECD = 3.7 if dmdhhsiz==6
+            replace OECD = 4.2 if dmdhhsiz==7
+            tab OECD, missing
+
+        *Create variable for Income OECD Size Ratio
+            gen ses = indhhin2/OECD
+            tab ses, missing
+
+    
+    *Create variable for being 18+ and not using proxy interviewee for Sample Persons Questionairre
+    *(1=no proxy; 0=used proxy)
+        generate noproxy = 1
+        replace noproxy = 0 if(siaproxy==1)
+        replace noproxy=. if(siaproxy==.)
+        tab noproxy, missing
+        generate age18 = .
+        replace age18 = 1 if ridageyr>17
+        replace age18 = 0 if ridageyr<18
+        tab age18, missing
+        tab ridageyr
+        tab noproxy
+        gen noproxy18 = .
+        replace noproxy18 = 1 if(age18 ==1 & noproxy==1)
+        replace noproxy18= 0 if(age18 ==0 | noproxy==0)
+
+*UNIVARIATE ANALYSIS
+    *Physical Activity
+        tab pa_rec if(noproxy18==1)
+        svy: tab pa_rec
+        svy, subpop(noproxy18): tab pa_rec, missing
+    *Race/ethnicity
+        svy: tab ridreth3
+        svy, subpop(noproxy18): tab ridreth3
+    *Place of Birth
+        svy, subpop(noproxy18): tab immigrant
+    *Age
+        svy, subpop(noproxy18): mean ridageyr
+    *Gender
+        svy, subpop(noproxy18): tab riagendr    
+    *Household Income
+        svy, subpop(noproxy18): tab indhhin2
+        svy, subpop(noproxy18): tab income35
+        svy, subpop(noproxy18): tab ses
+    *Household Members
+        svy, subpop(noproxy18): tab dmdhhsiz
+        svy, subpop(noproxy18): mean dmdhhsiz
+        tab noproxy18
+    *Education level    
+        svy, subpop(noproxy18): tab highered
+        
+*BIVARIATE ANALYSIS
+    *Association between Physical Activity and Age
+        svy, subpop(noproxy18): tab senior pa_rec, row col
+        
+        svy, subpop(noproxy18): tab pa_rec
+        
+        graph twoway scatter pa_rec ridageyr
+        
+        svy, subpop(noproxy18): logistic pa_rec ridageyr
+
+        
+    *Association between Physical Activity and Race/Ethnicity
+        svy, subpop(noproxy18): tab ridreth3 pa_rec, row col
+        tab pa_rec ridreth3, all row col 
+        tab ridreth3
+    *Association between Physical Activity and Gender
+        svy, subpop(noproxy18): tab sex pa_rec, row col
+        svy, subpop(noproxy18): logistic pa_rec sex
+
+    *Association between Physical Activity and Household Income
+        svy, subpop(noproxy18): tab indhhin2 pa_rec, row col
+        
+    *Association between Physical Activity and Immigrant Status
+        svy, subpop(noproxy18): tab immigrant pa_rec, row col
+        svy, subpop(noproxy18): logistic pa_rec immigrant
+
+    *Association between Physical Activity and Education Level
+        svy, subpop(noproxy18): tab highered pa_rec, row col
+        svy, subpop(noproxy18): logistic pa_rec highered 
+        svy, subpop(noproxy18): logistic pa_rec highered ridageyr
+    
+            
+*EXPLORE DISPARITIES WITHIN OLDER ADULT POP
+    *Create variable for older adult
+        gen senior = 1 if(ridageyr >64)
+        replace senior = 0 if(ridageyr <65)
+        replace senior = . if(ridageyr==.)
+        svy, subpop(noproxy18): tab senior, missing
+    *Create subpop of older adults
+            gen noproxyolder = 0
+            replace noproxyolder = 1 if(noproxy18==1 & ridageyr >64)
+            replace noproxyolder = . if(noproxy18==. | ridageyr ==.)
+    *What are racial/ethnic differences in PA among older adults?
+        *Regression
+            svy, subpop(noproxyolder): logistic pa_rec Mexican OthHispanic Black Asian Otherrace sex immigrant highered indhhin2 dmdhhsiz
+    *Association between PA and Income among older adults
+        svy, subpop(noproxyolder): logistic pa_rec indhhin2
+    *Association between PA and Gender in Older Adults    
+            svy, subpop(noproxyolder): logistic pa_rec sex
+
+*MULTIVARIATE ANALYSIS
+        *Age as continuous - Use this one to look at characteristics other than age 
+            svy, subpop(noproxy18): logistic pa_rec ridageyr sex Mexican OthHispanic Black Asian Otherrace immigrant highered indhhin2 dmdhhsiz
+        *Age Dichotomized (<65, >64) - Use this one to look at differences between older and younger adults when controlling for other covariates
+            svy, subpop(noproxy18): logistic pa_rec senior sex Mexican OthHispanic Black Asian Otherrace immigrant highered indhhin2 dmdhhsiz
